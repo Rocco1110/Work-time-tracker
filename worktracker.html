@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>工作时间分配管理系统 Pro v3</title>
+    <title>工作时间分配管理系统 Pro v4</title>
     <link rel="apple-touch-icon" href="PNG图像.png">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f5f5f7; margin: 0; padding: 15px; color: #333; -webkit-user-select: none; }
@@ -13,9 +13,11 @@
         .flex-box { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; }
         button { background-color: #f2f2f7; border: 2px solid transparent; border-radius: 8px; padding: 12px 8px; font-size: 0.9rem; font-weight: 500; color: #007aff; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
         button.active { background-color: #007aff; color: white; border-color: #00458f; }
+        /* 置灰按钮样式 */
+        button:disabled { background-color: #e5e5ea !important; color: #aeaea7 !important; border-color: transparent !important; cursor: not-allowed; text-decoration: line-through; opacity: 0.6; }
         .date-btn { padding: 8px 12px; font-size: 0.85rem; flex-shrink: 0; }
         .submit-btn { width: 100%; background-color: #34c759; color: white; font-size: 1.1rem; font-weight: bold; padding: 14px; margin-top: 10px; border: none; border-radius: 12px; }
-        .submit-btn:disabled { background-color: #aeaeb2; }
+        .submit-btn:disabled { background-color: #aeaeb2 !important; text-decoration: none !important; opacity: 1; }
         
         .tab-container { display: flex; background: #e3e3e8; border-radius: 8px; padding: 2px; margin-bottom: 10px; }
         .tab-btn { flex: 1; background: transparent; color: #333; padding: 6px 0; font-size: 0.85rem; border-radius: 6px; }
@@ -38,7 +40,6 @@
         .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; }
         .proj-list-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 0.85rem; }
         
-        /* 饼图画布容器 */
         .chart-container { display: flex; flex-direction: column; align-items: center; margin-top: 15px; padding: 10px 0; }
         canvas { max-width: 100%; background: #fff; }
         .chart-legend { width: 100%; margin-top: 12px; font-size: 0.8rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
@@ -48,25 +49,22 @@
 </head>
 <body>
 
-    <!-- 1. 日期选择区 -->
     <div class="section">
         <h2>1. 选择记录日期 <span id="selected-date-display" style="color: #34c759;">(今天)</span></h2>
         <div class="flex-box" id="date-grid"></div>
     </div>
 
-    <!-- 2. 时间区块 -->
     <div class="section">
-        <h2>2. 选择时间区块</h2>
+        <h2>2. 选择时间区块 <span class="sub-text" style="color:#ff9500;">(置灰表示该日已录入)</span></h2>
         <div class="grid" id="time-grid">
-            <button onclick="selectTime(this, '10-12', 2)">10-12 (2h)</button>
-            <button onclick="selectTime(this, '13.30-15.30', 2)">13.30-15.30 (2h)</button>
-            <button onclick="selectTime(this, '15.30-17.30', 2)">15.30-17.30 (2h)</button>
-            <button onclick="selectTime(this, '18.30-20.30', 2)">18.30-20.30 (2h)</button>
-            <button onclick="selectTime(this, '20.30-22.00', 1.5)">20.30-22.00 (1.5h)</button>
+            <button data-block="10-12" onclick="selectTime(this, '10-12', 2)">10-12 (2h)</button>
+            <button data-block="13.30-15.30" onclick="selectTime(this, '13.30-15.30', 2)">13.30-15.30 (2h)</button>
+            <button data-block="15.30-17.30" onclick="selectTime(this, '15.30-17.30', 2)">15.30-17.30 (2h)</button>
+            <button data-block="18.30-20.30" onclick="selectTime(this, '18.30-20.30', 2)">18.30-20.30 (2h)</button>
+            <button data-block="20.30-22.00" onclick="selectTime(this, '20.30-22.00', 1.5)">20.30-22.00 (1.5h)</button>
         </div>
     </div>
 
-    <!-- 3. 工作内容 -->
     <div class="section">
         <h2>3. 选择工作内容</h2>
         <div class="grid" id="project-grid"></div>
@@ -74,7 +72,6 @@
 
     <button id="save-btn" class="submit-btn" disabled onclick="saveRecord()">完成记录</button>
 
-    <!-- 4. 统计分析区 -->
     <div class="section">
         <h2>
             <div>
@@ -84,19 +81,16 @@
             <button class="btn-sm btn-success" onclick="exportToExcel()">导出 Excel</button>
         </h2>
         
-        <!-- 时间范围切换标签 -->
         <div class="tab-container">
             <button class="tab-btn active" id="tab-7" onclick="switchRange(7)">过去 7 天</button>
             <button class="tab-btn" id="tab-30" onclick="switchRange(30)">过去 30 天</button>
         </div>
         
-        <!-- 表格与饼图切换标签 -->
         <div class="tab-container" style="background:#e5e5ea;">
             <button class="tab-btn active" id="view-table-btn" onclick="switchView('table')">数据报表</button>
             <button class="tab-btn" id="view-chart-btn" onclick="switchView('chart')">饼状图分析</button>
         </div>
 
-        <!-- 数据表格视图 -->
         <div id="table-view">
             <table>
                 <thead>
@@ -110,7 +104,6 @@
             </table>
         </div>
 
-        <!-- 饼图视图 -->
         <div id="chart-view" style="display: none;">
             <div class="chart-container">
                 <canvas id="pieChart" width="260" height="260"></canvas>
@@ -119,7 +112,6 @@
         </div>
     </div>
 
-    <!-- 5. 项目自定义管理 -->
     <div class="section">
         <h2><span>项目快捷键管理</span><button class="btn-sm" onclick="toggleArea('manage-box')">展开/收起</button></h2>
         <div id="manage-box" style="display:none; margin-top:10px;">
@@ -139,7 +131,6 @@
         </div>
     </div>
 
-    <!-- 6. 跨设备导入/导出迁移 -->
     <div class="section">
         <h2><span>跨设备同步与数据清空</span><button class="btn-sm" onclick="toggleArea('sync-box')">展开/收起</button></h2>
         <div id="sync-box" style="display:none; margin-top:10px;">
@@ -162,8 +153,8 @@
         let selectedDuration = 0;
         let selectedProject = null;
         let isDiscount = false;
-        let currentRangeDays = 7; // 默认过去7天
-        let currentView = 'table'; // 默认表格视图
+        let currentRangeDays = 7; 
+        let currentView = 'table'; 
 
         const defaultProjects = [
             { id: "1", name: 'Oak项目管理,收尾', discount: false, visible: true },
@@ -187,6 +178,32 @@
             return JSON.parse(projs);
         }
 
+        // 核心逻辑：刷新时间区块按钮的可用状态 (Gray out 机制)
+        function refreshTimeBlockStatus() {
+            let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
+            
+            // 找出已选择的日期里，有哪些时间块已经被录入了
+            let loggedBlocks = data
+                .filter(item => item.date === selectedDateStr)
+                .map(item => item.timeBlock);
+
+            // 遍历所有时间按钮
+            document.querySelectorAll('#time-grid button').forEach(btn => {
+                let blockName = btn.getAttribute('data-block');
+                if (loggedBlocks.includes(blockName)) {
+                    btn.disabled = true; // 置灰
+                    btn.classList.remove('active');
+                    if (selectedTime === blockName) {
+                        selectedTime = null;
+                        selectedDuration = 0;
+                    }
+                } else {
+                    btn.disabled = false; // 恢复可用
+                }
+            });
+            checkReady();
+        }
+
         function initDateSelector() {
             const container = document.getElementById('date-grid');
             container.innerHTML = "";
@@ -204,6 +221,11 @@
                     btn.classList.add('active');
                     selectedDateStr = dateStr;
                     document.getElementById('selected-date-display').innerText = `(${daysName[i]} ${dateStr})`;
+                    
+                    // 日期切换时，重置选中的时间，并重新计算哪些时间块需要置灰
+                    document.querySelectorAll('#time-grid button').forEach(b => b.classList.remove('active'));
+                    selectedTime = null;
+                    refreshTimeBlockStatus();
                 };
                 container.appendChild(btn);
                 if (i === 0) selectedDateStr = dateStr;
@@ -265,6 +287,7 @@
         }
 
         function selectTime(btn, timeStr, duration) {
+            if (btn.disabled) return;
             document.querySelectorAll('#time-grid button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             selectedTime = timeStr; selectedDuration = duration; checkReady();
@@ -276,9 +299,15 @@
             let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
             data.push({ date: selectedDateStr, timeBlock: selectedTime, project: selectedProject, duration: selectedDuration, isDiscount: isDiscount });
             localStorage.setItem('work_hours_data', JSON.stringify(data));
+            
+            // 重置状态与按钮
             document.querySelectorAll('#time-grid button, #project-grid button').forEach(b => b.classList.remove('active'));
             selectedTime = null; selectedProject = null; document.getElementById('save-btn').disabled = true;
-            updateStats(); alert('记录成功！');
+            
+            // 重新计算当前日期置灰，并刷新图表
+            refreshTimeBlockStatus();
+            updateStats(); 
+            alert('记录成功！');
         }
 
         function switchRange(days) {
@@ -297,7 +326,6 @@
             if(view === 'chart') drawChart();
         }
 
-        // 全局变量存储当前刷新的汇总统计数据，以便绘图和导出使用
         let currentStatsSummary = [];
 
         function updateStats() {
@@ -361,7 +389,6 @@
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 只保留有结算工时的项目进行绘图
             let chartData = currentStatsSummary.filter(item => item.calculated > 0);
             const legendContainer = document.getElementById('chart-legend');
             legendContainer.innerHTML = '';
@@ -384,7 +411,6 @@
                 let color = chartColors[index % chartColors.length];
                 let sliceAngle = (item.calculated / total) * 2 * Math.PI;
 
-                // 画扇形
                 ctx.beginPath();
                 ctx.moveTo(centerX, centerY);
                 ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
@@ -394,7 +420,6 @@
 
                 startAngle += sliceAngle;
 
-                // 生成图例
                 legendContainer.innerHTML += `
                     <div class="legend-item">
                         <span class="legend-color" style="background-color: ${color}"></span>
@@ -408,8 +433,7 @@
             let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
             if(data.length === 0) return alert('当前没有流水数据可供导出！');
 
-            // 构造 CSV 内容 (Excel可直接识别并支持筛选和二次统计)
-            let csvContent = "\uFEFF"; // 加上 UTF-8 BOM 防止 Excel 打开乱码
+            let csvContent = "\uFEFF"; 
             csvContent += "日期,时间区块,工作内容,实际录入工时(h),计工时规则,折算后应统结算(h)\n";
             
             data.forEach(item => {
@@ -435,11 +459,9 @@
             let backupObj = { projs: projs, records: data };
             let text = btoa(encodeURIComponent(JSON.stringify(backupObj)));
             
-            // 写入剪贴板
             navigator.clipboard.writeText(text).then(() => {
                 alert('全量数据已成功复制到剪贴板！请发到新手机导入。');
             }).catch(err => {
-                // 降级兼容：如果是部分老iOS环境不支持clipboard API，创建临时元素
                 let textarea = document.createElement('textarea');
                 textarea.value = text;
                 document.body.appendChild(textarea);
@@ -459,7 +481,7 @@
                 if(parsed.projs && parsed.records) {
                     localStorage.setItem('work_projects_list', JSON.stringify(parsed.projs));
                     localStorage.setItem('work_hours_data', JSON.stringify(parsed.records));
-                    renderProjectButtons(); renderManageList(); updateStats();
+                    renderProjectButtons(); renderManageList(); updateStats(); refreshTimeBlockStatus();
                     document.getElementById('import-text').value = "";
                     alert('数据已成功在新手机上导入恢复！');
                 } else { throw new Error(); }
@@ -479,10 +501,11 @@
             el.style.display = el.style.display === 'none' ? 'block' : 'none';
         }
 
-        // 页面初始化运行
+        // 页面初始化
         initDateSelector();
         renderProjectButtons();
         renderManageList();
+        refreshTimeBlockStatus();
         updateStats();
     </script>
 </body>
