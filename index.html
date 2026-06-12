@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>工作时间分配管理系统 Pro v3</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f5f5f7; margin: 0; padding: 15px; color: #333; -webkit-user-select: none; }
+        h2 { font-size: 1.1rem; margin-top: 18px; margin-bottom: 8px; color: #1d1d1f; display: flex; justify-content: space-between; align-items: center; }
+        .section { background: white; padding: 14px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .flex-box { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; }
+        button { background-color: #f2f2f7; border: 2px solid transparent; border-radius: 8px; padding: 12px 8px; font-size: 0.9rem; font-weight: 500; color: #007aff; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+        button.active { background-color: #007aff; color: white; border-color: #00458f; }
+        .date-btn { padding: 8px 12px; font-size: 0.85rem; flex-shrink: 0; }
+        .submit-btn { width: 100%; background-color: #34c759; color: white; font-size: 1.1rem; font-weight: bold; padding: 14px; margin-top: 10px; border: none; border-radius: 12px; }
+        .submit-btn:disabled { background-color: #aeaeb2; }
+        
+        .tab-container { display: flex; background: #e3e3e8; border-radius: 8px; padding: 2px; margin-bottom: 10px; }
+        .tab-btn { flex: 1; background: transparent; color: #333; padding: 6px 0; font-size: 0.85rem; border-radius: 6px; }
+        .tab-btn.active { background: white; color: #007aff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e5ea; }
+        th { background-color: #f2f2f7; color: #8e8e93; font-weight: 600; }
+        .discount-note { font-size: 0.75rem; color: #ff9500; margin-top: 2px; display: block; }
+        .sub-text { font-size: 0.8rem; color: #8e8e93; font-weight: normal; }
+        
+        .btn-sm { padding: 5px 10px; font-size: 0.75rem; border-radius: 6px; border: 1px solid #e5e5ea; background: #fff; color: #555; }
+        .btn-danger { color: #ff3b30; } .btn-primary { color: #007aff; } .btn-success { color: #34c759; border-color: #34c759; }
+        
+        .backup-area { display: none; margin-top: 10px; }
+        textarea { width: 100%; height: 80px; font-family: monospace; font-size: 0.8rem; box-sizing: border-box; padding: 5px; border: 1px solid #d1d1d6; border-radius: 6px; }
+        
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: #666; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; }
+        .proj-list-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 0.85rem; }
+        
+        /* 饼图画布容器 */
+        .chart-container { display: flex; flex-direction: column; align-items: center; margin-top: 15px; padding: 10px 0; }
+        canvas { max-width: 100%; background: #fff; }
+        .chart-legend { width: 100%; margin-top: 12px; font-size: 0.8rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 日期选择区 -->
+    <div class="section">
+        <h2>1. 选择记录日期 <span id="selected-date-display" style="color: #34c759;">(今天)</span></h2>
+        <div class="flex-box" id="date-grid"></div>
+    </div>
+
+    <!-- 2. 时间区块 -->
+    <div class="section">
+        <h2>2. 选择时间区块</h2>
+        <div class="grid" id="time-grid">
+            <button onclick="selectTime(this, '10-12', 2)">10-12 (2h)</button>
+            <button onclick="selectTime(this, '13.30-15.30', 2)">13.30-15.30 (2h)</button>
+            <button onclick="selectTime(this, '15.30-17.30', 2)">15.30-17.30 (2h)</button>
+            <button onclick="selectTime(this, '18.30-20.30', 2)">18.30-20.30 (2h)</button>
+            <button onclick="selectTime(this, '20.30-22.00', 1.5)">20.30-22.00 (1.5h)</button>
+        </div>
+    </div>
+
+    <!-- 3. 工作内容 -->
+    <div class="section">
+        <h2>3. 选择工作内容</h2>
+        <div class="grid" id="project-grid"></div>
+    </div>
+
+    <button id="save-btn" class="submit-btn" disabled onclick="saveRecord()">完成记录</button>
+
+    <!-- 4. 统计分析区 -->
+    <div class="section">
+        <h2>
+            <div>
+                <span>工时数据统计</span>
+                <div class="sub-text" id="range-display">加载中...</div>
+            </div>
+            <button class="btn-sm btn-success" onclick="exportToExcel()">导出 Excel</button>
+        </h2>
+        
+        <!-- 时间范围切换标签 -->
+        <div class="tab-container">
+            <button class="tab-btn active" id="tab-7" onclick="switchRange(7)">过去 7 天</button>
+            <button class="tab-btn" id="tab-30" onclick="switchRange(30)">过去 30 天</button>
+        </div>
+        
+        <!-- 表格与饼图切换标签 -->
+        <div class="tab-container" style="background:#e5e5ea;">
+            <button class="tab-btn active" id="view-table-btn" onclick="switchView('table')">数据报表</button>
+            <button class="tab-btn" id="view-chart-btn" onclick="switchView('chart')">饼状图分析</button>
+        </div>
+
+        <!-- 数据表格视图 -->
+        <div id="table-view">
+            <table>
+                <thead>
+                    <tr>
+                        <th>工作内容</th>
+                        <th>实际工时</th>
+                        <th>应统结算 (占比)</th>
+                    </tr>
+                </thead>
+                <tbody id="stat-table"></tbody>
+            </table>
+        </div>
+
+        <!-- 饼图视图 -->
+        <div id="chart-view" style="display: none;">
+            <div class="chart-container">
+                <canvas id="pieChart" width="260" height="260"></canvas>
+                <div class="chart-legend" id="chart-legend"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 项目自定义管理 -->
+    <div class="section">
+        <h2><span>项目快捷键管理</span><button class="btn-sm" onclick="toggleArea('manage-box')">展开/收起</button></h2>
+        <div id="manage-box" style="display:none; margin-top:10px;">
+            <div class="form-group">
+                <label>新增项目名称：</label>
+                <input type="text" id="new-proj-name" placeholder="请输入项目名称">
+            </div>
+            <div class="form-group">
+                <label>计工时规则：</label>
+                <select id="new-proj-discount">
+                    <option value="false">100% 正常结算</option>
+                    <option value="true">50% 折算结算</option>
+                </select>
+            </div>
+            <button class="btn-sm btn-primary" style="width:100%; padding:8px; margin-bottom:15px;" onclick="addCustomProject()">确认添加项目</button>
+            <div id="manage-proj-list"></div>
+        </div>
+    </div>
+
+    <!-- 6. 跨设备导入/导出迁移 -->
+    <div class="section">
+        <h2><span>跨设备同步与数据清空</span><button class="btn-sm" onclick="toggleArea('sync-box')">展开/收起</button></h2>
+        <div id="sync-box" style="display:none; margin-top:10px;">
+            <p style="font-size:0.8rem; color:#666; margin:0 0 8px 0;">此处的【一键复制文本】包含所有历史数据与项目配置，可发到新手机直接导入无缝衔接。</p>
+            <div style="margin-bottom: 12px; display:flex; gap:8px;">
+                <button class="btn-sm btn-primary" style="flex:1; padding:8px;" onclick="copyBackupText()">一键复制同步文本</button>
+                <button class="btn-sm btn-danger" onclick="clearData()">清空全部数据</button>
+            </div>
+            <div class="form-group">
+                <label>在新手机上导入：</label>
+                <textarea id="import-text" placeholder="在此粘贴旧手机复制过来的同步文本..."></textarea>
+                <button class="btn-sm btn-primary" style="width:100%; margin-top:5px; padding:8px;" onclick="importData()">确认导入覆盖</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedDateStr = ""; 
+        let selectedTime = null;
+        let selectedDuration = 0;
+        let selectedProject = null;
+        let isDiscount = false;
+        let currentRangeDays = 7; // 默认过去7天
+        let currentView = 'table'; // 默认表格视图
+
+        const defaultProjects = [
+            { id: "1", name: 'Oak项目管理,收尾', discount: false, visible: true },
+            { id: "2", name: 'Ovation strata council', discount: true, visible: true },
+            { id: "3", name: '皇家山政府报批,设计协调', discount: false, visible: true },
+            { id: "4", name: '皇家山维护维修', discount: false, visible: true },
+            { id: "5", name: 'Roamstaurant 前期调研,准备', discount: false, visible: true },
+            { id: "6", name: '1002设计协调', discount: false, visible: true },
+            { id: "7", name: 'Builder license', discount: true, visible: true },
+            { id: "8", name: 'Ovation维修', discount: false, visible: true }
+        ];
+
+        const chartColors = ['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#5AC8FA', '#FFCC00', '#4CD964', '#5856D6', '#FF2D55', '#8E8E93', '#A4E786'];
+
+        function getProjects() {
+            let projs = localStorage.getItem('work_projects_list');
+            if (!projs) {
+                localStorage.setItem('work_projects_list', JSON.stringify(defaultProjects));
+                return defaultProjects;
+            }
+            return JSON.parse(projs);
+        }
+
+        function initDateSelector() {
+            const container = document.getElementById('date-grid');
+            container.innerHTML = "";
+            const daysName = ["今天", "昨天", "前天", "大前天"];
+            for (let i = 0; i < 4; i++) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+                let dateStr = d.toISOString().split('T')[0];
+                let showName = `${daysName[i]} (${d.getMonth()+1}/${d.getDate()})`;
+                let btn = document.createElement('button');
+                btn.className = "date-btn" + (i === 0 ? " active" : "");
+                btn.innerText = showName;
+                btn.onclick = function() {
+                    document.querySelectorAll('#date-grid button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedDateStr = dateStr;
+                    document.getElementById('selected-date-display').innerText = `(${daysName[i]} ${dateStr})`;
+                };
+                container.appendChild(btn);
+                if (i === 0) selectedDateStr = dateStr;
+            }
+        }
+
+        function renderProjectButtons() {
+            const container = document.getElementById('project-grid');
+            container.innerHTML = "";
+            getProjects().forEach(p => {
+                if(p.visible) {
+                    let btn = document.createElement('button');
+                    btn.innerHTML = `${p.name}${p.discount ? '<span class="discount-note">(50%结算)</span>' : ''}`;
+                    btn.onclick = function() {
+                        document.querySelectorAll('#project-grid button').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        selectedProject = p.name;
+                        isDiscount = p.discount;
+                        checkReady();
+                    };
+                    container.appendChild(btn);
+                }
+            });
+        }
+
+        function renderManageList() {
+            const container = document.getElementById('manage-proj-list');
+            container.innerHTML = "";
+            getProjects().forEach(p => {
+                let div = document.createElement('div');
+                div.className = "proj-list-item";
+                div.innerHTML = `
+                    <span>${p.name} ${p.discount ? '(50%)' : '(100%)'}</span>
+                    <button class="btn-sm ${p.visible?'btn-danger':''}" onclick="toggleProjectVisibility('${p.id}')">
+                        ${p.visible ? '隐藏' : '取消隐藏'}
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addCustomProject() {
+            let name = document.getElementById('new-proj-name').value.trim();
+            let discount = document.getElementById('new-proj-discount').value === "true";
+            if(!name) return alert("请输入项目名称");
+            let projs = getProjects();
+            if(projs.some(p => p.name === name)) return alert("项目名称已存在");
+            projs.push({ id: Date.now().toString(), name: name, discount: discount, visible: true });
+            localStorage.setItem('work_projects_list', JSON.stringify(projs));
+            document.getElementById('new-proj-name').value = "";
+            renderProjectButtons(); renderManageList(); updateStats();
+            alert("项目添加成功！");
+        }
+
+        function toggleProjectVisibility(id) {
+            let projs = getProjects();
+            let p = projs.find(x => x.id === id);
+            if(p) { p.visible = !p.visible; localStorage.setItem('work_projects_list', JSON.stringify(projs)); renderProjectButtons(); renderManageList(); updateStats(); }
+        }
+
+        function selectTime(btn, timeStr, duration) {
+            document.querySelectorAll('#time-grid button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedTime = timeStr; selectedDuration = duration; checkReady();
+        }
+
+        function checkReady() { document.getElementById('save-btn').disabled = !(selectedTime && selectedProject); }
+
+        function saveRecord() {
+            let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
+            data.push({ date: selectedDateStr, timeBlock: selectedTime, project: selectedProject, duration: selectedDuration, isDiscount: isDiscount });
+            localStorage.setItem('work_hours_data', JSON.stringify(data));
+            document.querySelectorAll('#time-grid button, #project-grid button').forEach(b => b.classList.remove('active'));
+            selectedTime = null; selectedProject = null; document.getElementById('save-btn').disabled = true;
+            updateStats(); alert('记录成功！');
+        }
+
+        function switchRange(days) {
+            currentRangeDays = days;
+            document.getElementById('tab-7').classList.toggle('active', days === 7);
+            document.getElementById('tab-30').classList.toggle('active', days === 30);
+            updateStats();
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('view-table-btn').classList.toggle('active', view === 'table');
+            document.getElementById('view-chart-btn').classList.toggle('active', view === 'chart');
+            document.getElementById('table-view').style.display = view === 'table' ? 'block' : 'none';
+            document.getElementById('chart-view').style.display = view === 'chart' ? 'block' : 'none';
+            if(view === 'chart') drawChart();
+        }
+
+        // 全局变量存储当前刷新的汇总统计数据，以便绘图和导出使用
+        let currentStatsSummary = [];
+
+        function updateStats() {
+            let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
+            let projs = getProjects();
+            
+            let today = new Date();
+            let pastDate = new Date();
+            pastDate.setDate(today.getDate() - currentRangeDays + 1);
+            
+            let startStr = pastDate.toISOString().split('T')[0];
+            let endStr = today.toISOString().split('T')[0];
+            document.getElementById('range-display').innerText = `统计区间: ${startStr} 至 ${endStr}`;
+
+            let stats = {};
+            projs.forEach(p => stats[p.name] = { raw: 0, calculated: 0, hasData: false });
+
+            let totalCalculated = 0;
+
+            data.forEach(item => {
+                let itemDate = item.date;
+                if (itemDate && itemDate.includes('/')) {
+                    try { itemDate = new Date(itemDate).toISOString().split('T')[0]; } catch(e){}
+                }
+                if (itemDate >= startStr && itemDate <= endStr) {
+                    if (!stats[item.project]) stats[item.project] = { raw: 0, calculated: 0, hasData: true };
+                    stats[item.project].raw += item.duration;
+                    let calcVal = item.isDiscount ? (item.duration * 0.5) : item.duration;
+                    stats[item.project].calculated += calcVal;
+                    stats[item.project].hasData = true;
+                    totalCalculated += calcVal;
+                }
+            });
+
+            let tbody = document.getElementById('stat-table');
+            tbody.innerHTML = '';
+            currentStatsSummary = [];
+
+            for (let projName in stats) {
+                let targetProj = projs.find(p => p.name === projName);
+                let isVisible = targetProj ? targetProj.visible : false;
+                
+                if (isVisible || stats[projName].hasData) {
+                    let calcHours = stats[projName].calculated;
+                    let pct = totalCalculated > 0 ? ((calcHours / totalCalculated) * 100).toFixed(1) : "0.0";
+                    
+                    currentStatsSummary.push({ name: projName, raw: stats[projName].raw, calculated: calcHours, percent: pct });
+
+                    tbody.innerHTML += `<tr>
+                        <td>${projName}</td>
+                        <td>${stats[projName].raw} h</td>
+                        <td><strong>${calcHours} h</strong> <span class="sub-text">(${pct}%)</span></td>
+                    </tr>`;
+                }
+            }
+            if(currentView === 'chart') drawChart();
+        }
+
+        function drawChart() {
+            const canvas = document.getElementById('pieChart');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 只保留有结算工时的项目进行绘图
+            let chartData = currentStatsSummary.filter(item => item.calculated > 0);
+            const legendContainer = document.getElementById('chart-legend');
+            legendContainer.innerHTML = '';
+
+            if (chartData.length === 0) {
+                ctx.fillStyle = '#8e8e93';
+                ctx.font = '14px -apple-system';
+                ctx.textAlign = 'center';
+                ctx.fillText('此区间暂无工时数据', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            let total = chartData.reduce((sum, item) => sum + item.calculated, 0);
+            let startAngle = 0;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 10;
+
+            chartData.forEach((item, index) => {
+                let color = chartColors[index % chartColors.length];
+                let sliceAngle = (item.calculated / total) * 2 * Math.PI;
+
+                // 画扇形
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                startAngle += sliceAngle;
+
+                // 生成图例
+                legendContainer.innerHTML += `
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: ${color}"></span>
+                        <span>${item.name}: <strong>${item.percent}%</strong></span>
+                    </div>
+                `;
+            });
+        }
+
+        function exportToExcel() {
+            let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
+            if(data.length === 0) return alert('当前没有流水数据可供导出！');
+
+            // 构造 CSV 内容 (Excel可直接识别并支持筛选和二次统计)
+            let csvContent = "\uFEFF"; // 加上 UTF-8 BOM 防止 Excel 打开乱码
+            csvContent += "日期,时间区块,工作内容,实际录入工时(h),计工时规则,折算后应统结算(h)\n";
+            
+            data.forEach(item => {
+                let calc = item.isDiscount ? (item.duration * 0.5) : item.duration;
+                let rule = item.isDiscount ? "50%折算" : "100%正常";
+                csvContent += `"${item.date}","${item.timeBlock}","${item.project}",${item.duration},"${rule}",${calc}\n`;
+            });
+
+            let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            let url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `工时记录导出_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function copyBackupText() {
+            let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
+            let projs = getProjects();
+            let backupObj = { projs: projs, records: data };
+            let text = btoa(encodeURIComponent(JSON.stringify(backupObj)));
+            
+            // 写入剪贴板
+            navigator.clipboard.writeText(text).then(() => {
+                alert('全量数据已成功复制到剪贴板！请发到新手机导入。');
+            }).catch(err => {
+                // 降级兼容：如果是部分老iOS环境不支持clipboard API，创建临时元素
+                let textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('全量数据已成功复制！');
+            });
+        }
+
+        function importData() {
+            let text = document.getElementById('import-text').value.trim();
+            if(!text) return alert('请先粘贴备份同步文本');
+            try {
+                let decoded = decodeURIComponent(atob(text));
+                let parsed = JSON.parse(decoded);
+                if(parsed.projs && parsed.records) {
+                    localStorage.setItem('work_projects_list', JSON.stringify(parsed.projs));
+                    localStorage.setItem('work_hours_data', JSON.stringify(parsed.records));
+                    renderProjectButtons(); renderManageList(); updateStats();
+                    document.getElementById('import-text').value = "";
+                    alert('数据已成功在新手机上导入恢复！');
+                } else { throw new Error(); }
+            } catch(e) { alert('导入失败，请确保复制了完整的同步文本。'); }
+        }
+
+        function clearData() {
+            if (confirm('警告：此操作将永久清空本地所有工时记录和项目配置！确认清空吗？')) {
+                localStorage.removeItem('work_hours_data');
+                localStorage.removeItem('work_projects_list');
+                location.reload();
+            }
+        }
+
+        function toggleArea(id) {
+            let el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // 页面初始化运行
+        initDateSelector();
+        renderProjectButtons();
+        renderManageList();
+        updateStats();
+    </script>
+</body>
+</html>
