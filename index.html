@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>工作时间分配管理系统 Pro v4.1</title>
+    <title>工作时间分配管理系统 Pro v4.2</title>
     <link rel="apple-touch-icon" href="PNG图像.png">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f5f5f7; margin: 0; padding: 15px; color: #333; -webkit-user-select: none; }
@@ -23,6 +23,8 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e5ea; }
         th { background-color: #f2f2f7; color: #8e8e93; font-weight: 600; }
+        tr.total-row { background-color: #fdfdfd; border-top: 2px solid #007aff; font-weight: bold; }
+        tr.total-row td { color: #1d1d1f; padding: 12px 10px; }
         .discount-note { font-size: 0.75rem; color: #ff9500; margin-top: 2px; display: block; }
         .sub-text { font-size: 0.8rem; color: #8e8e93; font-weight: normal; }
         .btn-sm { padding: 5px 10px; font-size: 0.75rem; border-radius: 6px; border: 1px solid #e5e5ea; background: #fff; color: #555; }
@@ -109,7 +111,7 @@
         <div id="manage-box" style="display:none; margin-top:10px;">
             <div class="form-group">
                 <label>新增项目名称：</label>
-                <input type="text" id="new-proj-name" placeholder="请输入项目名称">
+                <input text="text" id="new-proj-name" placeholder="请输入项目名称">
             </div>
             <div class="form-group">
                 <label>计工时规则：</label>
@@ -192,7 +194,6 @@
             checkReady();
         }
 
-        // 核心修正：基于用户设备本地时间（即温哥华时间）动态计算日期
         function getLocalDateString(offsetDays = 0) {
             let d = new Date();
             if (offsetDays !== 0) {
@@ -321,6 +322,7 @@
 
         let currentStatsSummary = [];
 
+        // 核心改造：在这里统一计算单项以及【总计实际工时】和【总计结算工时】
         function updateStats() {
             let data = JSON.parse(localStorage.getItem('work_hours_data')) || [];
             let projs = getProjects();
@@ -332,7 +334,8 @@
             let stats = {};
             projs.forEach(p => stats[p.name] = { raw: 0, calculated: 0, hasData: false });
 
-            let totalCalculated = 0;
+            let totalRaw = 0;         // 新增：总计实际工时计数器
+            let totalCalculated = 0;  // 总计结算工时计数器
 
             data.forEach(item => {
                 let itemDate = item.date;
@@ -341,11 +344,14 @@
                 }
                 if (itemDate >= startStr && itemDate <= endStr) {
                     if (!stats[item.project]) stats[item.project] = { raw: 0, calculated: 0, hasData: true };
+                    
                     stats[item.project].raw += item.duration;
+                    totalRaw += item.duration; // 累加实际总工时
+                    
                     let calcVal = item.isDiscount ? (item.duration * 0.5) : item.duration;
                     stats[item.project].calculated += calcVal;
                     stats[item.project].hasData = true;
-                    totalCalculated += calcVal;
+                    totalCalculated += calcVal; // 累加结算总工时
                 }
             });
 
@@ -370,6 +376,14 @@
                     </tr>`;
                 }
             }
+
+            // 核心输出：在表格最底部强行注入一条「总计行」
+            tbody.innerHTML += `<tr class="total-row">
+                <td>总计工时</td>
+                <td>${totalRaw} h</td>
+                <td>${totalCalculated} h <span class="sub-text">(100%)</span></td>
+            </tr>`;
+
             if(currentView === 'chart') drawChart();
         }
 
@@ -490,7 +504,6 @@
             el.style.display = el.style.display === 'none' ? 'block' : 'none';
         }
 
-        // 页面启动初始化
         initDateSelector();
         renderProjectButtons();
         renderManageList();
